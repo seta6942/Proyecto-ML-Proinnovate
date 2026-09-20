@@ -11,6 +11,7 @@ import pandas as pd
 from pathlib import Path
 import re
 import unicodedata
+import glob
 
 warnings.filterwarnings("ignore")
 
@@ -121,3 +122,40 @@ def normalizar_fecha(fecha_str):
             pass
             
     return s
+
+#Lectura y concatenación de CSVs
+
+archivos = sorted(glob.glob(str(DIR_DATOS / "*.csv")))
+assert len(archivos) > 0, f"Carpeta {DIR_DATOS} vacía. Saliendo."
+
+dataframes = []
+
+for filepath in archivos:
+    df = None
+    
+    for enc in ["utf-8", "utf-8-sig", "latin-1"]:
+        try:
+            df = pd.read_csv(
+                filepath,
+                encoding=enc,
+                on_bad_lines="skip",
+                engine="python",
+                quotechar='"',
+                escapechar='\\'
+            )
+            break
+        except Exception:
+            continue
+            
+    if df is None:
+        print(f"-> Archivo corrupto o no se pudo leer: {filepath}")
+        continue
+
+    df["Anio_Corte_Archivo"] = extraer_fecha_corte_archivo(filepath)
+    
+    df.columns = df.columns.str.strip().str.upper()
+    df.rename(columns=MAPEO_COLUMNAS, inplace=True)
+    
+    dataframes.append(df)
+
+df_all = pd.concat(dataframes, ignore_index=True, sort=False)
