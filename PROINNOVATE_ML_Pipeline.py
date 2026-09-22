@@ -159,3 +159,37 @@ for filepath in archivos:
     dataframes.append(df)
 
 df_all = pd.concat(dataframes, ignore_index=True, sort=False)
+
+#Transformación y Estandarización
+
+if "Fecha_Corte" in df_all.columns:
+    df_all["Fecha_Corte_Std"] = df_all["Fecha_Corte"].apply(normalizar_fecha)
+else:
+    df_all["Fecha_Corte_Std"] = df_all["Anio_Corte_Archivo"].apply(
+        lambda x: normalizar_fecha(x) if len(str(x)) >= 6 else str(x)
+    )
+
+df_all["Anio_Corte_Num"] = (
+    df_all["Fecha_Corte_Std"]
+    .str.replace("-", "")
+    .str[:8]
+    .apply(lambda x: int(x) if str(x).isdigit() else 0)
+)
+
+cols_financieras = ["Monto_Estado", "Aporte_Empresa", "Aporte_No_Financiero"]
+for col in cols_financieras:
+    if col in df_all.columns:
+        df_all[col] = df_all[col].apply(limpiar_monto)
+    else:
+        df_all[col] = 0.0
+
+df_all["Monto_Total_Proyecto"] = (
+    df_all["Monto_Estado"] +
+    df_all["Aporte_Empresa"] +
+    df_all["Aporte_No_Financiero"]
+)
+
+cols_texto = ["Region", "Sector", "Empresa", "Titulo_Proyecto"]
+for col in cols_texto:
+    if col in df_all.columns:
+        df_all[col] = df_all[col].apply(quitar_tildes)
