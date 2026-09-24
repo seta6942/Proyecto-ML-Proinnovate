@@ -106,7 +106,6 @@ def normalizar_fecha(fecha_str):
     
     s = str(fecha_str).replace("-", "").replace("/", "").strip()
     
-    # a veces pandas lee '20211231' como 20211231.0
     if s.endswith(".0"):
         s = s[:-2]
         
@@ -193,3 +192,22 @@ cols_texto = ["Region", "Sector", "Empresa", "Titulo_Proyecto"]
 for col in cols_texto:
     if col in df_all.columns:
         df_all[col] = df_all[col].apply(quitar_tildes)
+
+#Deduplicación y Exportación
+
+columnas_deduplicacion = ["Contrato"]
+
+df_all["Contrato"] = df_all["Contrato"].astype(str).str.strip()
+df_all["Contrato"] = df_all["Contrato"].replace(["", "nan", "None"], pd.NA)
+
+df_all.dropna(subset=columnas_deduplicacion, inplace=True)
+
+df_all.sort_values("Anio_Corte_Num", ascending=False, inplace=True)
+
+df_consolidado = df_all.groupby(columnas_deduplicacion, as_index=False).first()
+
+assert not df_consolidado.empty, "df_consolidado vacío tras deduplicación."
+assert df_consolidado["Contrato"].duplicated().sum() == 0, "duplicados persistentes en Contrato."
+
+df_consolidado.to_csv(CSV_CONSOLIDADO, index=False, encoding="utf-8-sig")
+
