@@ -12,6 +12,12 @@ from pathlib import Path
 import re
 import unicodedata
 import glob
+import nltk
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
+from sklearn.preprocessing import normalize
+from sklearn.cluster import KMeans
 
 warnings.filterwarnings("ignore")
 
@@ -211,3 +217,73 @@ assert df_consolidado["Contrato"].duplicated().sum() == 0, "duplicados persisten
 
 df_consolidado.to_csv(CSV_CONSOLIDADO, index=False, encoding="utf-8-sig")
 
+#NLP Y CLUSTERING
+try:
+    nltk.data.find("corpora/stopwords")
+except LookupError:
+    nltk.download("stopwords", quiet=True)
+    nltk.download("punkt", quiet=True)
+
+palabras_vacias = set(stopwords.words("spanish")).union({
+    "para", "con", "del", "las", "los", "una", "uno", "sus", "ser",
+    "esta", "este", "mediante", "traves", "hacia", "entre", "como",
+    "mas", "sino", "ante", "bajo", "sobre", "desde", "hasta",
+    "proyecto", "desarrollo", "implementacion", "sistema", "empresa",
+    "nacional", "regional", "local", "peru", "peruano", "peruanos",
+    "financiamiento", "cofinanciamiento", "innovacion", "innovate",
+    "proinnovate", "fincyt", "fidecom", "fomitec", "concytec",
+    "mejora", "mejoramiento", "fortalecimiento", "capacidades",
+})
+
+def preprocesar_titulo(texto):
+    if not isinstance(texto, str) or pd.isna(texto):
+        return ""
+    
+    tokens = re.findall(r"[A-Z]{3,}", texto.upper())
+    tokens_limpios = [t.lower() for t in tokens if t.lower() not in palabras_vacias]
+    return " ".join(tokens_limpios)
+
+df_consolidado["Titulo_Procesado"] = df_consolidado["Titulo_Proyecto"].apply(preprocesar_titulo)
+
+mascara_valida = df_consolidado["Titulo_Procesado"].str.len() > 5
+corpus = df_consolidado.loc[mascara_valida, "Titulo_Procesado"].tolist()
+
+N_CLUSTERS = 5
+MAX_CARACTERISTICAS = 500
+N_COMPONENTES = 50
+
+vectorizador = TfidfVectorizer(
+    max_features=MAX_CARACTERISTICAS,
+    ngram_range=(1, 2),
+    min_df=2,
+    sublinear_tf=True
+)
+matriz_tfidf = vectorizador.fit_transform(corpus)
+
+n_comp_real = min(N_COMPONENTES, matriz_tfidf.shape[1] - 1, matriz_tfidf.shape[0] - 1)
+svd = TruncatedSVD(n_components=n_comp_real, random_state=42)
+matriz_svd = svd.fit_transform(matriz_tfidf)
+
+matriz_norm = normalize(matriz_svd)
+
+kmeans = KMeans(
+    n_clusters=N_CLUSTERS,
+    init="k-means++",
+    n_init=15,
+    max_iter=300,
+    random_state=42
+)
+clusters = kmeans.fit_predict(matriz_norm)
+
+df_consolidado["Cluster_Innovacion"] = -1
+df_consolidado.loc[mascara_valida, "Cluster_Innovacion"] = clusters
+
+nombres_cluster = {
+    0: "Marketing_Digital",
+    1: "Misión_Tecnologica",
+    2: "Certificación_Calidad",
+    3: "Digitalización_ERP",
+    4: "Producción_Prototipo",
+}
+
+df_consolidado["Cluster_Nombre"] = df_consolidado["Cluster_Innovacion"].map(nombres_cluster).fillna("Sin_Clasificar")
