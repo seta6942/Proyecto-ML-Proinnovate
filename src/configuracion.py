@@ -226,3 +226,31 @@ CONTAMINACION_ANOMALIAS = 0.05
 
 # Mínimo de proyectos para comparar un monto contra la mediana de su concurso
 MIN_PROYECTOS_CONCURSO = 10
+
+# ==============================================================================
+# Fase 4: modelo de capacidad de inversión
+# ==============================================================================
+
+CSV_METRICAS_MODELO = DIR_SALIDAS / "metricas_modelo_inversion.csv"
+PNG_IMPORTANCIA     = DIR_SALIDAS / "importancia_variables_xgboost.png"
+
+N_PLIEGUES_CV = 5
+
+# Categorías con menos proyectos se agrupan en una sola columna "infrecuente"
+FRECUENCIA_MINIMA_CATEGORIA = 5
+
+# Se comparó error cuadrático, Huber y error absoluto sobre el mismo esquema
+# de validación. El error absoluto estima la mediana y es el único que supera
+# a la línea base en MAE: los ratios tienen extremos (hasta 34 soles privados
+# por sol público) que con error cuadrático arrastran las predicciones.
+HIPERPARAMETROS_XGB = {
+    "objective"       : "reg:absoluteerror",
+    "n_estimators"    : 400,
+    "learning_rate"   : 0.05,
+    "max_depth"       : 6,
+    "min_child_weight": 3,      # evita hojas formadas por uno o dos proyectos
+    "subsample"       : 0.8,    # cada árbol ve el 80% de filas y columnas,
+    "colsample_bytree": 0.8,    # lo que reduce el sobreajuste
+    "reg_lambda"      : 1.0,
+    "tree_method"     : "hist",
+}

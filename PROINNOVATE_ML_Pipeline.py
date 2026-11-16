@@ -25,14 +25,17 @@ from src.configuracion import (
     CSV_CONSOLIDADO,
     CSV_ENRIQUECIDO,
     CSV_EVALUACION_CLUSTERS,
+    CSV_METRICAS_MODELO,
     CSV_REGISTRO_LECTURA,
     CSV_RESUMEN_CLUSTERS,
     CSV_RESUMEN_REGIONAL,
     DIR_DATOS,
     PNG_ANOMALIAS,
+    PNG_IMPORTANCIA,
 )
 from src.extraccion import extraer_cortes
 from src.metricas import ejecutar_metricas
+from src.modelo_inversion import ejecutar_modelo_inversion
 from src.nlp_clustering import ejecutar_clustering
 from src.transformacion import transformar_datos
 from src.validacion import ErrorValidacionDatos
@@ -56,6 +59,10 @@ def main() -> None:
 
     df, figura_anomalias = ejecutar_deteccion_anomalias(df)
     guardar_figura(figura_anomalias, PNG_ANOMALIAS)
+
+    df, metricas_modelo, figura_importancia = ejecutar_modelo_inversion(df)
+    guardar_csv(metricas_modelo, CSV_METRICAS_MODELO)
+    guardar_figura(figura_importancia, PNG_IMPORTANCIA)
 
     print("\nDATASET FINAL")
     guardar_csv(df, CSV_ENRIQUECIDO)
