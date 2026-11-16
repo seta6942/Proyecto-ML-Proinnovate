@@ -254,3 +254,41 @@ HIPERPARAMETROS_XGB = {
     "reg_lambda"      : 1.0,
     "tree_method"     : "hist",
 }
+
+# ==============================================================================
+# Fase 5: modelo estrella para Power BI
+# ==============================================================================
+
+DIR_POWERBI = DIR_SALIDAS / "powerbi"
+
+# Coordenadas aproximadas (latitud, longitud) de la capital de cada
+# departamento. Con solo el nombre, Power BI ubica mal algunos departamentos
+# ("AMAZONAS" en Brasil, "LA LIBERTAD" en El Salvador); con coordenadas el
+# mapa no depende de su geocodificador.
+COORDENADAS_DEPARTAMENTOS = {
+    "AMAZONAS"     : (-6.2317, -77.8690),
+    "ANCASH"       : (-9.5278, -77.5278),
+    "APURIMAC"     : (-13.6339, -72.8814),
+    "AREQUIPA"     : (-16.4090, -71.5375),
+    "AYACUCHO"     : (-13.1588, -74.2239),
+    "CAJAMARCA"    : (-7.1638, -78.5003),
+    "CALLAO"       : (-12.0566, -77.1181),
+    "CUSCO"        : (-13.5320, -71.9675),
+    "HUANCAVELICA" : (-12.7861, -74.9760),
+    "HUANUCO"      : (-9.9306, -76.2422),
+    "ICA"          : (-14.0678, -75.7286),
+    "JUNIN"        : (-12.0651, -75.2049),
+    "LA LIBERTAD"  : (-8.1116, -79.0288),
+    "LAMBAYEQUE"   : (-6.7714, -79.8409),
+    "LIMA"         : (-12.0464, -77.0428),
+    "LORETO"       : (-3.7491, -73.2538),
+    "MADRE DE DIOS": (-12.5933, -69.1891),
+    "MOQUEGUA"     : (-17.1983, -70.9357),
+    "PASCO"        : (-10.6864, -76.2625),
+    "PIURA"        : (-5.1945, -80.6328),
+    "PUNO"         : (-15.8402, -70.0219),
+    "SAN MARTIN"   : (-6.0342, -76.9717),
+    "TACNA"        : (-18.0146, -70.2536),
+    "TUMBES"       : (-3.5669, -80.4515),
+    "UCAYALI"      : (-8.3791, -74.5539),
+}

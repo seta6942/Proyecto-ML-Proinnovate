@@ -30,6 +30,7 @@ from src.configuracion import (
     CSV_RESUMEN_CLUSTERS,
     CSV_RESUMEN_REGIONAL,
     DIR_DATOS,
+    DIR_POWERBI,
     PNG_ANOMALIAS,
     PNG_IMPORTANCIA,
 )
@@ -37,6 +38,7 @@ from src.extraccion import extraer_cortes
 from src.metricas import ejecutar_metricas
 from src.modelo_inversion import ejecutar_modelo_inversion
 from src.nlp_clustering import ejecutar_clustering
+from src.powerbi import construir_modelo_estrella
 from src.transformacion import transformar_datos
 from src.validacion import ErrorValidacionDatos
 
@@ -66,6 +68,9 @@ def main() -> None:
 
     print("\nDATASET FINAL")
     guardar_csv(df, CSV_ENRIQUECIDO)
+
+    for nombre_archivo, tabla in construir_modelo_estrella(df, resumen_clusters).items():
+        guardar_csv(tabla, DIR_POWERBI / nombre_archivo)
 
     print(f"\nPipeline completado en {time.perf_counter() - inicio:.1f} s")
 
