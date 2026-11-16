@@ -19,7 +19,8 @@ import time
 # procesador tiene hyperthreading).
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(max(1, (os.cpu_count() or 2) // 2)))
 
-from src.almacenamiento import guardar_csv
+from src.almacenamiento import guardar_csv, guardar_figura
+from src.anomalias import ejecutar_deteccion_anomalias
 from src.configuracion import (
     CSV_CONSOLIDADO,
     CSV_ENRIQUECIDO,
@@ -28,6 +29,7 @@ from src.configuracion import (
     CSV_RESUMEN_CLUSTERS,
     CSV_RESUMEN_REGIONAL,
     DIR_DATOS,
+    PNG_ANOMALIAS,
 )
 from src.extraccion import extraer_cortes
 from src.metricas import ejecutar_metricas
@@ -51,6 +53,9 @@ def main() -> None:
     df, evaluacion_k, resumen_clusters = ejecutar_clustering(df)
     guardar_csv(evaluacion_k, CSV_EVALUACION_CLUSTERS)
     guardar_csv(resumen_clusters, CSV_RESUMEN_CLUSTERS)
+
+    df, figura_anomalias = ejecutar_deteccion_anomalias(df)
+    guardar_figura(figura_anomalias, PNG_ANOMALIAS)
 
     print("\nDATASET FINAL")
     guardar_csv(df, CSV_ENRIQUECIDO)

@@ -213,3 +213,16 @@ SECTOR_MULTISECTORIAL    = "MULTISECTORIAL"
 SECTOR_SIN_CLASIFICAR    = "SIN CLASIFICAR"
 UMBRAL_DOMINANCIA_SECTOR = 0.35
 SIN_CLUSTER              = -1
+
+# ==============================================================================
+# Fase 3: detección de anomalías
+# ==============================================================================
+
+PNG_ANOMALIAS = DIR_SALIDAS / "anomalias_scatter.png"
+
+# Proporción de proyectos que el Isolation Forest marca como atípicos. Con 5%
+# la lista resultante (unos 460 proyectos) se puede revisar caso por caso.
+CONTAMINACION_ANOMALIAS = 0.05
+
+# Mínimo de proyectos para comparar un monto contra la mediana de su concurso
+MIN_PROYECTOS_CONCURSO = 10
