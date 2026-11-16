@@ -125,3 +125,91 @@ MACRORREGIONES = {
     "SUR"          : ["AREQUIPA", "MOQUEGUA", "TACNA", "PUNO", "CUSCO", "APURIMAC", "MADRE DE DIOS"],
     "ORIENTE"      : ["AMAZONAS", "SAN MARTIN", "LORETO", "UCAYALI"],
 }
+
+# ==============================================================================
+# Fase 2: NLP y clustering
+# ==============================================================================
+
+CSV_EVALUACION_CLUSTERS = DIR_SALIDAS / "evaluacion_clusters.csv"
+CSV_RESUMEN_CLUSTERS    = DIR_SALIDAS / "resumen_clusters.csv"
+
+# Los títulos son textos cortos y el silhouette es bajo para cualquier k
+# (0.07 a 0.14). k=10 es un máximo local: supera a 8 y a 12, separa temas que
+# con 5 quedaban mezclados (ISO, HACCP, misiones tecnológicas, validación) y
+# cada clúster sigue siendo interpretable. k=14 tiene un silhouette mayor pero
+# fragmenta los temas en grupos pequeños. La evaluación queda en
+# evaluacion_clusters.csv.
+N_CLUSTERS          = 10
+RANGO_K_EVALUACION  = [6, 8, 10, 12, 14]
+MAX_CARACTERISTICAS = 1500
+N_COMPONENTES       = 100
+MIN_DOCUMENTOS      = 3     # descarta términos que aparecen en menos de 3 títulos
+MAX_PROPORCION_DOCS = 0.5   # descarta términos presentes en más de la mitad
+N_TERMINOS_CLUSTER  = 10
+MUESTRA_SILHOUETTE  = 5000  # el silhouette es O(n²); una muestra basta para comparar k
+
+# Términos frecuentes en los títulos que no describen la tecnología del
+# proyecto: conectores, nombres de programas y palabras genéricas de gestión.
+PALABRAS_VACIAS_EXTRA = {
+    "para", "con", "del", "las", "los", "una", "uno", "sus", "ser",
+    "esta", "este", "mediante", "traves", "hacia", "entre", "como",
+    "mas", "sino", "ante", "bajo", "sobre", "desde", "hasta",
+    "proyecto", "desarrollo", "implementacion", "sistema", "empresa",
+    "nacional", "regional", "local", "peru", "peruano", "peruanos",
+    "financiamiento", "cofinanciamiento", "innovacion", "innovate",
+    "proinnovate", "fincyt", "fidecom", "fomitec", "concytec",
+    "mejora", "mejoramiento", "fortalecimiento", "capacidades",
+    "sac", "eirl", "srl", "empresas", "region", "departamento", "provincia", "distrito",
+    "partir", "uso", "utilizando", "alto", "base", "basado", "nuevo", "nueva",
+    "madre", "dios",
+}
+
+# Cada clúster recibe el sector cuyos términos pesan más en su centroide. Así
+# el nombre depende del contenido del clúster y no de su número, que K-Means
+# puede cambiar si se agregan cortes nuevos. Un término pertenece a un solo
+# sector para que los puntajes no se repartan entre dos.
+SECTORES_TECNOLOGICOS = {
+    "CERTIFICACION Y CALIDAD": [
+        "iso", "certificacion", "norma", "calidad", "gestion calidad", "haccp",
+        "seguridad", "salud", "inocuidad", "ohsas", "acreditacion", "laboratorio",
+        "trazabilidad", "buenas practicas",
+    ],
+    "TRANSFORMACION DIGITAL": [
+        "digital", "digitales", "digitalizacion", "plataforma", "software", "web",
+        "online", "virtual", "aplicativo", "app", "movil", "erp", "inteligente",
+        "datos", "automatizacion", "comercio electronico", "transformacion digital",
+    ],
+    "AGROINDUSTRIA Y ALIMENTOS": [
+        "cultivo", "cacao", "cafe", "alimentos", "agricola", "agroindustrial",
+        "organica", "organico", "quinua", "frutas", "semillas", "leche",
+        "acuicultura", "pesca", "harina", "ganado", "palta", "fertilizante",
+    ],
+    "MANUFACTURA Y PROCESOS": [
+        "produccion", "proceso", "planta", "fabricacion", "industrial", "residuos",
+        "tratamiento", "linea produccion", "equipo", "materiales", "procesamiento",
+    ],
+    "PROTOTIPADO Y VALIDACION": [
+        "prototipo", "validacion", "empaquetamiento", "piloto", "escalamiento",
+        "validacion tecnica", "tecnica comercial", "maquina",
+    ],
+    "INTERNACIONALIZACION": [
+        "exportacion", "exportaciones", "internacionalizacion", "internacional",
+        "mercado internacional", "consolidacion", "posicionamiento",
+    ],
+    "TRANSFERENCIA Y FORMACION": [
+        "mision", "mision tecnologica", "feria", "bootcamp", "pasantia", "evento",
+        "congreso", "seminario", "capacitacion", "incubadora", "emprendimiento",
+        "emprendedores",
+    ],
+    "MARKETING Y GESTION COMERCIAL": [
+        "marketing", "marketing digital", "ventas", "clientes", "comercial",
+        "estrategia", "estrategias", "marca",
+    ],
+}
+
+# Si ningún sector reúne al menos esta parte del puntaje de un clúster, el
+# clúster mezcla temas y se etiqueta como multisectorial
+SECTOR_MULTISECTORIAL    = "MULTISECTORIAL"
+SECTOR_SIN_CLASIFICAR    = "SIN CLASIFICAR"
+UMBRAL_DOMINANCIA_SECTOR = 0.35
+SIN_CLUSTER              = -1
