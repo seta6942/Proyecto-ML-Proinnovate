@@ -1,289 +1,69 @@
 """
 PORTAFOLIO PROINNOVATE - PIPELINE COMPLETO
 Autor: Sandro Estanislao Tapia Acosta
-Última actualización: 19/09/2026
+Última actualización: 16/11/2026
 
-Datasets: 6 cortes históricos del programa ProInnóvate (Perú)
+Datasets: cortes históricos del programa ProInnóvate (Perú)
+
+Este script solo orquesta las fases: cada módulo de src/ calcula y devuelve
+sus tablas o figuras, y aquí se decide en qué archivo se guardan.
 """
 
-import warnings
-import pandas as pd
-from pathlib import Path
-import re
-import unicodedata
-import glob
-import nltk
-from nltk.corpus import stopwords
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.decomposition import TruncatedSVD
-from sklearn.preprocessing import normalize
-from sklearn.cluster import KMeans
+import os
+import sys
+import time
 
-warnings.filterwarnings("ignore")
+# joblib intenta contar los núcleos físicos con un comando del sistema que en
+# Windows falla y llena la consola de advertencias. Solo respeta un límite menor
+# a los núcleos lógicos, por eso se usa la mitad (los núcleos físicos cuando el
+# procesador tiene hyperthreading).
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(max(1, (os.cpu_count() or 2) // 2)))
 
-DIR_DATOS   = Path("Data")
-DIR_SALIDAS = Path("Outputs")
-DIR_SALIDAS.mkdir(parents=True, exist_ok=True)
-
-# Archivo de salida de la Fase 1
-CSV_CONSOLIDADO = DIR_SALIDAS / "dataset_consolidado_limpio.csv"
-
-# Fase 1: ETL Multi-archivo y Limpieza
-
-MAPEO_COLUMNAS = {
-    "CONTRATO"           : "Contrato",
-    "CODIGO"             : "Contrato",
-    "NOMBRE_SOLICITANTE" : "Empresa",
-    "EMPRESA"            : "Empresa",
-    "RAZON_SOCIAL"       : "Empresa",
-    "TITULO"             : "Titulo_Proyecto",
-    "TITULO_PROYECTO"    : "Titulo_Proyecto",
-    "FONDO"              : "Sector",
-    "SECTOR"             : "Sector",
-    "DEPARTAMENTO"       : "Region",
-    "REGION"             : "Region",
-    "DPTO"               : "Region",
-    "MONTO_RNR"          : "Monto_Estado",
-    "MONTO_PROINNOVATE"  : "Monto_Estado",
-    "MONTO_ESTADO"       : "Monto_Estado",
-    "MONTO_FINANCIERO"   : "Aporte_Empresa",
-    "APORTE_EMPRESA"     : "Aporte_Empresa",
-    "FECHA_CORTE"        : "Fecha_Corte",
-    "ANIO"               : "Anio_Proyecto",
-    "CONCURSO"           : "Concurso",
-    "FECHA_INICIO"       : "Fecha_Inicio",
-    "FECHA_FIN"          : "Fecha_Fin",
-    "MONTO_NO_FINANCIERO": "Aporte_No_Financiero",
-    "UBIGEO"             : "Ubigeo",
-    "PROVINCIA"          : "Provincia",
-    "DISTRITO"           : "Distrito",
-    "MONEDA"             : "Moneda",
-}
-
-COLS_REQUERIDAS = [
-    "Contrato", "Empresa", "Titulo_Proyecto", "Sector", "Region",
-    "Monto_Estado", "Aporte_Empresa", "Fecha_Corte"
-]
-
-#Funciones para limpieza de datos
-
-def quitar_tildes(texto):
-    if pd.isna(texto) or type(texto) != str:
-        return texto
-    
-    nfkd = unicodedata.normalize("NFKD", texto)
-    sin_tilde = "".join(c for c in nfkd if not unicodedata.combining(c))
-    return sin_tilde.upper().strip()
-
-
-def limpiar_monto(valor):
-    if pd.isna(valor):
-        return 0.0
-    
-    texto = str(valor).strip()
-    texto = re.sub(r"[S$/€£¥₹\s]", "", texto)
-    
-    if "," in texto and "." in texto:
-        texto = texto.replace(",", "")
-    elif "," in texto and "." not in texto:
-        texto = texto.replace(",", ".")
-        
-    texto = re.sub(r"[^\d.]", "", texto)
-    return float(texto) if texto else 0.0
-
-
-def extraer_fecha_corte_archivo(filepath):
-    nombre = Path(filepath).stem
-    
-    match_8 = re.search(r"(\d{8})", nombre)
-    if match_8:
-        return match_8.group(1)
-        
-    match_6 = re.search(r"(\d{6})", nombre)
-    if match_6:
-        return match_6.group(1)
-        
-    return nombre
-
-
-def normalizar_fecha(fecha_str):
-    if pd.isna(fecha_str):
-        return "9999-12-31" 
-    
-    s = str(fecha_str).replace("-", "").replace("/", "").strip()
-    
-    if s.endswith(".0"):
-        s = s[:-2]
-        
-    if len(s) == 8:
-        try:
-            return pd.to_datetime(s, format="%Y%m%d").strftime("%Y-%m-%d")
-        except ValueError:
-            pass
-        
-        try:
-            return pd.to_datetime(s, format="%d%m%Y").strftime("%Y-%m-%d")
-        except ValueError:
-            pass
-            
-    return s
-
-#Lectura y concatenación de CSVs
-
-archivos = sorted(glob.glob(str(DIR_DATOS / "*.csv")))
-assert len(archivos) > 0, f"Carpeta {DIR_DATOS} vacía. Saliendo."
-
-dataframes = []
-
-for filepath in archivos:
-    df = None
-    
-    for enc in ["utf-8", "utf-8-sig", "latin-1"]:
-        try:
-            df = pd.read_csv(
-                filepath,
-                encoding=enc,
-                on_bad_lines="skip",
-                engine="python",
-                quotechar='"',
-                escapechar='\\'
-            )
-            break
-        except Exception:
-            continue
-            
-    if df is None:
-        print(f"-> Archivo corrupto o no se pudo leer: {filepath}")
-        continue
-
-    df["Anio_Corte_Archivo"] = extraer_fecha_corte_archivo(filepath)
-    
-    df.columns = df.columns.str.strip().str.upper()
-    df.rename(columns=MAPEO_COLUMNAS, inplace=True)
-    
-    dataframes.append(df)
-
-df_all = pd.concat(dataframes, ignore_index=True, sort=False)
-
-#Transformación y Estandarización
-
-if "Fecha_Corte" in df_all.columns:
-    df_all["Fecha_Corte_Std"] = df_all["Fecha_Corte"].apply(normalizar_fecha)
-else:
-    df_all["Fecha_Corte_Std"] = df_all["Anio_Corte_Archivo"].apply(
-        lambda x: normalizar_fecha(x) if len(str(x)) >= 6 else str(x)
-    )
-
-df_all["Anio_Corte_Num"] = (
-    df_all["Fecha_Corte_Std"]
-    .str.replace("-", "")
-    .str[:8]
-    .apply(lambda x: int(x) if str(x).isdigit() else 0)
+from src.almacenamiento import guardar_csv
+from src.configuracion import (
+    CSV_CONSOLIDADO,
+    CSV_ENRIQUECIDO,
+    CSV_EVALUACION_CLUSTERS,
+    CSV_REGISTRO_LECTURA,
+    CSV_RESUMEN_CLUSTERS,
+    CSV_RESUMEN_REGIONAL,
+    DIR_DATOS,
 )
+from src.extraccion import extraer_cortes
+from src.metricas import ejecutar_metricas
+from src.nlp_clustering import ejecutar_clustering
+from src.transformacion import transformar_datos
+from src.validacion import ErrorValidacionDatos
 
-cols_financieras = ["Monto_Estado", "Aporte_Empresa", "Aporte_No_Financiero"]
-for col in cols_financieras:
-    if col in df_all.columns:
-        df_all[col] = df_all[col].apply(limpiar_monto)
-    else:
-        df_all[col] = 0.0
 
-df_all["Monto_Total_Proyecto"] = (
-    df_all["Monto_Estado"] +
-    df_all["Aporte_Empresa"] +
-    df_all["Aporte_No_Financiero"]
-)
+def main() -> None:
+    """Ejecuta las fases del pipeline en orden y guarda sus salidas."""
+    inicio = time.perf_counter()
 
-cols_texto = ["Region", "Sector", "Empresa", "Titulo_Proyecto"]
-for col in cols_texto:
-    if col in df_all.columns:
-        df_all[col] = df_all[col].apply(quitar_tildes)
+    df_cortes, registro_lectura = extraer_cortes(DIR_DATOS)
+    guardar_csv(registro_lectura, CSV_REGISTRO_LECTURA)
+    df = transformar_datos(df_cortes)
+    guardar_csv(df, CSV_CONSOLIDADO)
 
-#Deduplicación y Exportación
+    df, resumen_regional = ejecutar_metricas(df)
+    guardar_csv(resumen_regional, CSV_RESUMEN_REGIONAL)
 
-columnas_deduplicacion = ["Contrato"]
+    df, evaluacion_k, resumen_clusters = ejecutar_clustering(df)
+    guardar_csv(evaluacion_k, CSV_EVALUACION_CLUSTERS)
+    guardar_csv(resumen_clusters, CSV_RESUMEN_CLUSTERS)
 
-df_all["Contrato"] = df_all["Contrato"].astype(str).str.strip()
-df_all["Contrato"] = df_all["Contrato"].replace(["", "nan", "None"], pd.NA)
+    print("\nDATASET FINAL")
+    guardar_csv(df, CSV_ENRIQUECIDO)
 
-df_all.dropna(subset=columnas_deduplicacion, inplace=True)
+    print(f"\nPipeline completado en {time.perf_counter() - inicio:.1f} s")
 
-df_all.sort_values("Anio_Corte_Num", ascending=False, inplace=True)
 
-df_consolidado = df_all.groupby(columnas_deduplicacion, as_index=False).first()
-
-assert not df_consolidado.empty, "df_consolidado vacío tras deduplicación."
-assert df_consolidado["Contrato"].duplicated().sum() == 0, "duplicados persistentes en Contrato."
-
-df_consolidado.to_csv(CSV_CONSOLIDADO, index=False, encoding="utf-8-sig")
-
-#NLP Y CLUSTERING
-try:
-    nltk.data.find("corpora/stopwords")
-except LookupError:
-    nltk.download("stopwords", quiet=True)
-    nltk.download("punkt", quiet=True)
-
-palabras_vacias = set(stopwords.words("spanish")).union({
-    "para", "con", "del", "las", "los", "una", "uno", "sus", "ser",
-    "esta", "este", "mediante", "traves", "hacia", "entre", "como",
-    "mas", "sino", "ante", "bajo", "sobre", "desde", "hasta",
-    "proyecto", "desarrollo", "implementacion", "sistema", "empresa",
-    "nacional", "regional", "local", "peru", "peruano", "peruanos",
-    "financiamiento", "cofinanciamiento", "innovacion", "innovate",
-    "proinnovate", "fincyt", "fidecom", "fomitec", "concytec",
-    "mejora", "mejoramiento", "fortalecimiento", "capacidades",
-})
-
-def preprocesar_titulo(texto):
-    if not isinstance(texto, str) or pd.isna(texto):
-        return ""
-    
-    tokens = re.findall(r"[A-Z]{3,}", texto.upper())
-    tokens_limpios = [t.lower() for t in tokens if t.lower() not in palabras_vacias]
-    return " ".join(tokens_limpios)
-
-df_consolidado["Titulo_Procesado"] = df_consolidado["Titulo_Proyecto"].apply(preprocesar_titulo)
-
-mascara_valida = df_consolidado["Titulo_Procesado"].str.len() > 5
-corpus = df_consolidado.loc[mascara_valida, "Titulo_Procesado"].tolist()
-
-N_CLUSTERS = 5
-MAX_CARACTERISTICAS = 500
-N_COMPONENTES = 50
-
-vectorizador = TfidfVectorizer(
-    max_features=MAX_CARACTERISTICAS,
-    ngram_range=(1, 2),
-    min_df=2,
-    sublinear_tf=True
-)
-matriz_tfidf = vectorizador.fit_transform(corpus)
-
-n_comp_real = min(N_COMPONENTES, matriz_tfidf.shape[1] - 1, matriz_tfidf.shape[0] - 1)
-svd = TruncatedSVD(n_components=n_comp_real, random_state=42)
-matriz_svd = svd.fit_transform(matriz_tfidf)
-
-matriz_norm = normalize(matriz_svd)
-
-kmeans = KMeans(
-    n_clusters=N_CLUSTERS,
-    init="k-means++",
-    n_init=15,
-    max_iter=300,
-    random_state=42
-)
-clusters = kmeans.fit_predict(matriz_norm)
-
-df_consolidado["Cluster_Innovacion"] = -1
-df_consolidado.loc[mascara_valida, "Cluster_Innovacion"] = clusters
-
-nombres_cluster = {
-    0: "Marketing_Digital",
-    1: "Misión_Tecnologica",
-    2: "Certificación_Calidad",
-    3: "Digitalización_ERP",
-    4: "Producción_Prototipo",
-}
-
-df_consolidado["Cluster_Nombre"] = df_consolidado["Cluster_Innovacion"].map(nombres_cluster).fillna("Sin_Clasificar")
+if __name__ == "__main__":
+    try:
+        main()
+    except (FileNotFoundError, ErrorValidacionDatos) as error:
+        # Los errores de datos o de esquema se muestran como un mensaje claro.
+        # Cualquier otra excepción conserva su traza porque indica un error de
+        # programación.
+        print(f"\nPipeline detenido: {error}")
+        sys.exit(1)
