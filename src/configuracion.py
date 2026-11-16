@@ -105,3 +105,23 @@ TIPO_CAMBIO_ANUAL = {
 
 REGION_NO_DETERMINADA   = "NO DETERMINADO"
 VALORES_REGION_SIN_DATO = {"N/D", "ND", "NO DEFINIDO", "-"}
+
+# ==============================================================================
+# Métricas financieras y territoriales
+# ==============================================================================
+
+CSV_RESUMEN_REGIONAL = DIR_SALIDAS / "resumen_regional.csv"
+
+AMBITO_LIMA     = "LIMA METROPOLITANA Y CALLAO"
+AMBITO_REGIONES = "REGIONES"
+
+# Agrupación geográfica convencional de los departamentos del Perú. Lima y
+# Callao forman su propio grupo porque concentran la mayoría de proyectos y
+# ocultarían la distribución en el resto del país.
+MACRORREGIONES = {
+    "LIMA Y CALLAO": ["LIMA", "CALLAO"],
+    "NORTE"        : ["TUMBES", "PIURA", "LAMBAYEQUE", "LA LIBERTAD", "CAJAMARCA", "ANCASH"],
+    "CENTRO"       : ["HUANUCO", "PASCO", "JUNIN", "HUANCAVELICA", "ICA", "AYACUCHO"],
+    "SUR"          : ["AREQUIPA", "MOQUEGUA", "TACNA", "PUNO", "CUSCO", "APURIMAC", "MADRE DE DIOS"],
+    "ORIENTE"      : ["AMAZONAS", "SAN MARTIN", "LORETO", "UCAYALI"],
+}
